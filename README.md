@@ -119,7 +119,7 @@ Simply open the HTML file in a modern web browser. No installation required.
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/calibration-visualization.git
+git clone https://github.com/dishant2009/Neural-Network-Calibration-vs-Accuracy-Visualization
 
 # Open in browser
-open calibration-visualization.html
+open calibration-viz.html
