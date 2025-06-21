@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calibration vs Accuracy: Why Confident AI Can Be Wrong</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 32px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+        
+        .key-insight {
+            background: #e8f4fd;
+            border-left: 4px solid #3498db;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .panel {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .panel h3 {
+            margin-bottom: 20px;
+            color: #2c3e50;
+            font-size: 20px;
+        }
+        
+        .sample-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .prediction-box {
+            aspect-ratio: 1;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .prediction-box:hover {
+            transform: scale(1.1);
+            z-index: 10;
+        }
+        
+        .prediction-label {
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .confidence {
+            font-size: 12px;
+            color: white;
+            opacity: 0.9;
+        }
+        
+        .correct {
+            background: #27ae60;
+        }
+        
+        .incorrect {
+            background: #e74c3c;
+        }
+        
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            position: relative;
+        }
+        
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        
+        .controls {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .control-group label {
+            font-weight: 600;
+            min-width: 150px;
+        }
+        
+        input[type="range"] {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+        }
+        
+        .value-display {
+            background: #3498db;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            min-width: 60px;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .model-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .model-btn {
+            padding: 10px 20px;
+            border: 2px solid #3498db;
+            background: white;
+            color: #3498db;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .model-btn.active {
+            background: #3498db;
+            color: white;
+        }
+        
+        .model-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .metric-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .metric-card.good {
+            border-color: #27ae60;
+        }
+        
+        .metric-card.warning {
+            border-color: #f39c12;
+        }
+        
+        .metric-card.bad {
+            border-color: #e74c3c;
+        }
+        
+        .metric-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .metric-label {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        .explanation-box {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .explanation-box h4 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        
+        .comparison-panel {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .architecture-comparison {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .arch-card {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .arch-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .arch-card.selected {
+            background: #3498db;
+            color: white;
+        }
+        
+        .arch-name {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .arch-stats {
+            font-size: 14px;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .tooltip.show {
+            opacity: 1;
+        }
+        
+        .ece-visualization {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .bin-container {
+            display: flex;
+            align-items: flex-end;
+            height: 200px;
+            margin-top: 20px;
+            gap: 5px;
+            position: relative;
+            padding-bottom: 40px;
+        }
+        
+        .bin {
+            flex: 1;
+            background: #3498db;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            min-height: 10px;
+            max-height: 180px;
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .bin:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+        
+        .bin-label {
+            position: absolute;
+            bottom: -35px;
+            font-size: 11px;
+            color: #7f8c8d;
+            white-space: nowrap;
+            transform: rotate(-45deg);
+            transform-origin: center;
+        }
+        
+        .bin-value {
+            color: white;
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 12px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .reliability-explanation {
+            background: #e8f4fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .graph-guide {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        
+        .guide-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        
+        .guide-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-top: 4px;
+            flex-shrink: 0;
+        }
+        
+        .real-world-panel {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .scenario-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .scenario-card {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .scenario-card h4 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .scenario-card.danger {
+            border-left-color: #e74c3c;
+            background: #fee;
+        }
+        
+        .scenario-card.success {
+            border-left-color: #27ae60;
+            background: #e8f8f5;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .architecture-comparison {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .model-selector {
+                flex-direction: column;
+            }
+            
+            .sample-grid {
+                grid-template-columns: repeat(5, 1fr);
+            }
+            
+            .control-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .control-group label {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Calibration vs Accuracy: Why Confident AI Can Be Wrong</h1>
+            <p class="subtitle">Understanding the critical difference between being right and knowing when you're right</p>
+            <div class="key-insight">
+                <strong>Key Insight:</strong> A model with 95% accuracy might say it's 99% confident on every prediction. 
+                This overconfidence can be dangerous in medical diagnosis, autonomous driving, or financial decisions. 
+                Calibration ensures the model's confidence matches its actual reliability.
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="model-selector">
+                <button class="model-btn active" onclick="selectModel('overconfident')">Overconfident Model</button>
+                <button class="model-btn" onclick="selectModel('underconfident')">Underconfident Model</button>
+                <button class="model-btn" onclick="selectModel('wellcalibrated')">Well-Calibrated Model</button>
+                <button class="model-btn" onclick="selectModel('custom')">Custom Settings</button>
+            </div>
+            
+            <div class="control-group">
+                <label>Temperature Scaling:</label>
+                <input type="range" id="temperature" min="0.1" max="5" step="0.1" value="1" oninput="updateTemperature()">
+                <span class="value-display" id="temp-value">1.0</span>
+            </div>
+            
+            <div class="control-group">
+                <label>Model Confidence Bias:</label>
+                <input type="range" id="confidence-bias" min="-0.5" max="0.5" step="0.05" value="0.3" oninput="updateModel()">
+                <span class="value-display" id="bias-value">+0.30</span>
+            </div>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card" id="accuracy-card">
+                <div class="metric-value" id="accuracy-value">85%</div>
+                <div class="metric-label">Accuracy</div>
+            </div>
+            <div class="metric-card" id="ece-card">
+                <div class="metric-value" id="ece-value">0.15</div>
+                <div class="metric-label">Expected Calibration Error</div>
+            </div>
+            <div class="metric-card" id="confidence-card">
+                <div class="metric-value" id="avg-confidence">92%</div>
+                <div class="metric-label">Average Confidence</div>
+            </div>
+            <div class="metric-card" id="reliability-card">
+                <div class="metric-value" id="reliability-score">Poor</div>
+                <div class="metric-label">Calibration Quality</div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="panel">
+                <h3>Model Predictions (100 Samples)</h3>
+                <div class="sample-grid" id="predictions-grid"></div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #27ae60;"></div>
+                        <span>Correct Prediction</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #e74c3c;"></div>
+                        <span>Incorrect Prediction</span>
+                    </div>
+                    <div class="legend-item">
+                        <span>Brightness = Confidence Level</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h3>Reliability Diagram</h3>
+                <div class="reliability-explanation">
+                    <strong>Understanding This Graph:</strong> The diagonal line represents perfect calibration. 
+                    When the model says "80% confident", it should be correct 80% of the time. 
+                    Points above the line mean the model is underconfident, below means overconfident.
+                </div>
+                <div class="chart-container">
+                    <canvas id="reliability-diagram"></canvas>
+                </div>
+                <div class="graph-guide">
+                    <div class="guide-item">
+                        <div class="guide-dot" style="background: #e74c3c;"></div>
+                        <div>
+                            <strong>Below the line:</strong> Model is overconfident. 
+                            Says "90% sure" but only correct 70% of the time.
+                        </div>
+                    </div>
+                    <div class="guide-item">
+                        <div class="guide-dot" style="background: #27ae60;"></div>
+                        <div>
+                            <strong>On the line:</strong> Perfect calibration. 
+                            Confidence matches actual performance.
+                        </div>
+                    </div>
+                    <div class="guide-item">
+                        <div class="guide-dot" style="background: #3498db;"></div>
+                        <div>
+                            <strong>Above the line:</strong> Model is underconfident. 
+                            More accurate than it thinks.
+                        </div>
+                    </div>
+                    <div class="guide-item">
+                        <div class="guide-dot" style="background: #f39c12;"></div>
+                        <div>
+                            <strong>Distance from line:</strong> The further from the diagonal, 
+                            the worse the calibration.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>Expected Calibration Error (ECE) Breakdown</h3>
+            <div class="ece-visualization">
+                <p>ECE measures the average difference between confidence and accuracy across all confidence bins.</p>
+                <div class="bin-container" id="ece-bins"></div>
+            </div>
+        </div>
+
+        <div class="comparison-panel">
+            <h3>Calibration Across Different Architectures</h3>
+            <div class="architecture-comparison">
+                <div class="arch-card" onclick="showArchitectureDetails('resnet')">
+                    <div class="arch-name">ResNet-50</div>
+                    <div class="arch-stats">
+                        <div>Accuracy: 92%</div>
+                        <div>ECE: 0.12</div>
+                        <div>Tends to: Overconfident</div>
+                    </div>
+                </div>
+                <div class="arch-card" onclick="showArchitectureDetails('vit')">
+                    <div class="arch-name">Vision Transformer</div>
+                    <div class="arch-stats">
+                        <div>Accuracy: 94%</div>
+                        <div>ECE: 0.08</div>
+                        <div>Tends to: Well-calibrated</div>
+                    </div>
+                </div>
+                <div class="arch-card" onclick="showArchitectureDetails('efficientnet')">
+                    <div class="arch-name">EfficientNet</div>
+                    <div class="arch-stats">
+                        <div>Accuracy: 91%</div>
+                        <div>ECE: 0.18</div>
+                        <div>Tends to: Very overconfident</div>
+                    </div>
+                </div>
+                <div class="arch-card" onclick="showArchitectureDetails('ensemble')">
+                    <div class="arch-name">Ensemble</div>
+                    <div class="arch-stats">
+                        <div>Accuracy: 95%</div>
+                        <div>ECE: 0.05</div>
+                        <div>Tends to: Best calibrated</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="real-world-panel">
+            <h3>Real-World Impact Scenarios</h3>
+            <div class="scenario-grid">
+                <div class="scenario-card danger">
+                    <h4>Medical Diagnosis - Overconfident Model</h4>
+                    <p><strong>Model says:</strong> "99% confident this tumor is benign"</p>
+                    <p><strong>Reality:</strong> Model is wrong 15% of the time at this confidence level</p>
+                    <p><strong>Impact:</strong> Doctors might skip additional tests, potentially missing cancer</p>
+                </div>
+                <div class="scenario-card success">
+                    <h4>Medical Diagnosis - Well-Calibrated Model</h4>
+                    <p><strong>Model says:</strong> "75% confident this tumor is benign"</p>
+                    <p><strong>Reality:</strong> Model is correct 75% of the time at this confidence level</p>
+                    <p><strong>Impact:</strong> Doctors know to order additional tests due to uncertainty</p>
+                </div>
+                <div class="scenario-card danger">
+                    <h4>Autonomous Driving - Overconfident Model</h4>
+                    <p><strong>Model says:</strong> "95% confident pedestrian detected"</p>
+                    <p><strong>Reality:</strong> Misses pedestrians 20% of the time when this confident</p>
+                    <p><strong>Impact:</strong> Car might not slow down enough, risking accidents</p>
+                </div>
+                <div class="scenario-card success">
+                    <h4>Financial Trading - Well-Calibrated Model</h4>
+                    <p><strong>Model says:</strong> "60% confident stock will rise"</p>
+                    <p><strong>Reality:</strong> Correct 60% of the time</p>
+                    <p><strong>Impact:</strong> Traders can size positions appropriately based on true risk</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.js"></script>
+    <script>
+        // Global variables
+        let currentModel = 'overconfident';
+        let temperature = 1.0;
+        let confidenceBias = 0.3;
+        let predictions = [];
+        let reliabilityChart = null;
+        
+        // Model presets
+        const modelPresets = {
+            overconfident: { bias: 0.3, temperature: 1.0 },
+            underconfident: { bias: -0.3, temperature: 1.0 },
+            wellcalibrated: { bias: 0.0, temperature: 1.0 },
+            custom: { bias: 0.0, temperature: 1.0 }
+        };
+        
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                generatePredictions();
+                updateVisualization();
+                setupReliabilityDiagram();
+            }, 100);
+        });
+        
+        // Generate sample predictions
+        function generatePredictions() {
+            predictions = [];
+            const numSamples = 100;
+            const baseAccuracy = 0.85;
+            
+            for (let i = 0; i < numSamples; i++) {
+                const isCorrect = Math.random() < baseAccuracy;
+                
+                let confidence;
+                if (isCorrect) {
+                    confidence = 0.7 + Math.random() * 0.3 + confidenceBias;
+                } else {
+                    confidence = 0.3 + Math.random() * 0.4 + confidenceBias;
+                }
+                
+                confidence = Math.max(0.1, Math.min(0.99, confidence));
+                
+                const scaledConfidence = applyTemperatureScaling(confidence, temperature);
+                
+                predictions.push({
+                    id: i,
+                    isCorrect: isCorrect,
+                    rawConfidence: confidence,
+                    confidence: scaledConfidence,
+                    class: isCorrect ? 'A' : 'B'
+                });
+            }
+        }
+        
+        // Apply temperature scaling to confidence
+        function applyTemperatureScaling(confidence, temp) {
+            const logit = Math.log(confidence / (1 - confidence));
+            const scaledLogit = logit / temp;
+            const scaled = 1 / (1 + Math.exp(-scaledLogit));
+            return Math.max(0.1, Math.min(0.99, scaled));
+        }
+        
+        // Update all visualizations
+        function updateVisualization() {
+            updatePredictionGrid();
+            updateMetrics();
+            updateReliabilityDiagram();
+            updateECEBins();
+        }
+        
+        // Update prediction grid
+        function updatePredictionGrid() {
+            const grid = document.getElementById('predictions-grid');
+            if (!grid) return;
+            
+            grid.innerHTML = '';
+            
+            predictions.forEach(pred => {
+                const box = document.createElement('div');
+                box.className = `prediction-box ${pred.isCorrect ? 'correct' : 'incorrect'}`;
+                box.style.opacity = 0.3 + (pred.confidence * 0.7);
+                
+                box.innerHTML = `
+                    <div class="prediction-label">${pred.class}</div>
+                    <div class="confidence">${Math.round(pred.confidence * 100)}%</div>
+                `;
+                
+                box.addEventListener('mouseenter', (e) => showTooltip(e, pred));
+                box.addEventListener('mouseleave', hideTooltip);
+                
+                grid.appendChild(box);
+            });
+        }
+        
+        // Calculate metrics
+        function updateMetrics() {
+            if (!predictions || predictions.length === 0) return;
+            
+            const correctCount = predictions.filter(p => p.isCorrect).length;
+            const accuracy = correctCount / predictions.length;
+            const avgConfidence = predictions.reduce((sum, p) => sum + p.confidence, 0) / predictions.length;
+            const ece = calculateECE();
+            
+            const accuracyEl = document.getElementById('accuracy-value');
+            if (accuracyEl) accuracyEl.textContent = `${Math.round(accuracy * 100)}%`;
+            
+            const eceEl = document.getElementById('ece-value');
+            if (eceEl) eceEl.textContent = ece.toFixed(3);
+            
+            const avgConfEl = document.getElementById('avg-confidence');
+            if (avgConfEl) avgConfEl.textContent = `${Math.round(avgConfidence * 100)}%`;
+            
+            const accuracyCard = document.getElementById('accuracy-card');
+            if (accuracyCard) accuracyCard.className = 'metric-card good';
+            
+            const eceCard = document.getElementById('ece-card');
+            if (eceCard) {
+                if (ece < 0.05) {
+                    eceCard.className = 'metric-card good';
+                } else if (ece < 0.1) {
+                    eceCard.className = 'metric-card warning';
+                } else {
+                    eceCard.className = 'metric-card bad';
+                }
+            }
+            
+            const reliabilityCard = document.getElementById('reliability-card');
+            const reliabilityScore = document.getElementById('reliability-score');
+            
+            if (reliabilityCard && reliabilityScore) {
+                if (ece < 0.05) {
+                    reliabilityScore.textContent = 'Excellent';
+                    reliabilityCard.className = 'metric-card good';
+                } else if (ece < 0.1) {
+                    reliabilityScore.textContent = 'Good';
+                    reliabilityCard.className = 'metric-card warning';
+                } else if (ece < 0.15) {
+                    reliabilityScore.textContent = 'Poor';
+                    reliabilityCard.className = 'metric-card bad';
+                } else {
+                    reliabilityScore.textContent = 'Very Poor';
+                    reliabilityCard.className = 'metric-card bad';
+                }
+            }
+        }
+        
+        // Calculate Expected Calibration Error
+        function calculateECE() {
+            if (!predictions || predictions.length === 0) return 0;
+            
+            const numBins = 10;
+            const binSize = 1.0 / numBins;
+            let ece = 0;
+            
+            for (let i = 0; i < numBins; i++) {
+                const binMin = i * binSize;
+                const binMax = (i + 1) * binSize;
+                
+                const binPredictions = predictions.filter(p => 
+                    p.confidence >= binMin && p.confidence < binMax
+                );
+                
+                if (binPredictions.length === 0) continue;
+                
+                const avgConfidence = binPredictions.reduce((sum, p) => sum + p.confidence, 0) / binPredictions.length;
+                const binAccuracy = binPredictions.filter(p => p.isCorrect).length / binPredictions.length;
+                
+                const binWeight = binPredictions.length / predictions.length;
+                ece += binWeight * Math.abs(avgConfidence - binAccuracy);
+            }
+            
+            return ece;
+        }
+        
+        // Setup reliability diagram
+        function setupReliabilityDiagram() {
+            if (typeof Chart === 'undefined') return;
+            
+            const ctx = document.getElementById('reliability-diagram');
+            if (!ctx) return;
+            
+            try {
+                const chartConfig = {
+                    type: 'scatter',
+                    data: {
+                        datasets: [
+                            {
+                                label: 'Perfect Calibration',
+                                data: [
+                                    { x: 0, y: 0 },
+                                    { x: 1, y: 1 }
+                                ],
+                                type: 'line',
+                                borderColor: '#2c3e50',
+                                borderDash: [5, 5],
+                                borderWidth: 2,
+                                pointRadius: 0,
+                                fill: false
+                            },
+                            {
+                                label: 'Model Calibration',
+                                data: [],
+                                backgroundColor: '#3498db',
+                                borderColor: '#2980b9',
+                                borderWidth: 2,
+                                pointRadius: 8,
+                                pointHoverRadius: 10,
+                                type: 'line',
+                                fill: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Mean Predicted Confidence',
+                                    font: {
+                                        size: 14
+                                    }
+                                },
+                                min: 0,
+                                max: 1,
+                                ticks: {
+                                    callback: function(value) {
+                                        return (value * 100) + '%';
+                                    }
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Fraction of Positives (Accuracy)',
+                                    font: {
+                                        size: 14
+                                    }
+                                },
+                                min: 0,
+                                max: 1,
+                                ticks: {
+                                    callback: function(value) {
+                                        return (value * 100) + '%';
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        if (context.datasetIndex === 1) {
+                                            return `Confidence: ${Math.round(context.parsed.x * 100)}%, Accuracy: ${Math.round(context.parsed.y * 100)}%`;
+                                        }
+                                        return '';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+                
+                reliabilityChart = new Chart(ctx, chartConfig);
+            } catch (error) {
+                console.error('Error setting up reliability diagram:', error);
+            }
+        }
+        
+        // Update reliability diagram
+        function updateReliabilityDiagram() {
+            if (!reliabilityChart || !predictions || predictions.length === 0) return;
+            
+            const numBins = 10;
+            const binSize = 1.0 / numBins;
+            const calibrationData = [];
+            
+            for (let i = 0; i < numBins; i++) {
+                const binMin = i * binSize;
+                const binMax = (i + 1) * binSize;
+                
+                const binPredictions = predictions.filter(p => 
+                    p.confidence >= binMin && p.confidence < binMax
+                );
+                
+                if (binPredictions.length > 0) {
+                    const avgConfidence = binPredictions.reduce((sum, p) => sum + p.confidence, 0) / binPredictions.length;
+                    const binAccuracy = binPredictions.filter(p => p.isCorrect).length / binPredictions.length;
+                    
+                    calibrationData.push({
+                        x: avgConfidence,
+                        y: binAccuracy
+                    });
+                }
+            }
+            
+            reliabilityChart.data.datasets[1].data = calibrationData;
+            reliabilityChart.update();
+        }
+        
+        // Update ECE bins visualization
+        function updateECEBins() {
+            const container = document.getElementById('ece-bins');
+            if (!container || !predictions || predictions.length === 0) return;
+            
+            container.innerHTML = '';
+            
+            const numBins = 10;
+            const binSize = 1.0 / numBins;
+            const maxHeight = 180;
+            const maxError = 0.2;
+            
+            for (let i = 0; i < numBins; i++) {
+                const binMin = i * binSize;
+                const binMax = (i + 1) * binSize;
+                
+                const binPredictions = predictions.filter(p => 
+                    p.confidence >= binMin && p.confidence < binMax
+                );
+                
+                const bin = document.createElement('div');
+                bin.className = 'bin';
+                
+                if (binPredictions.length === 0) {
+                    bin.style.height = '10px';
+                    bin.style.background = '#ecf0f1';
+                    bin.innerHTML = `<div class="bin-label">${Math.round(binMin * 100)}-${Math.round(binMax * 100)}%</div>`;
+                    container.appendChild(bin);
+                    continue;
+                }
+                
+                const avgConfidence = binPredictions.reduce((sum, p) => sum + p.confidence, 0) / binPredictions.length;
+                const binAccuracy = binPredictions.filter(p => p.isCorrect).length / binPredictions.length;
+                const error = Math.abs(avgConfidence - binAccuracy);
+                
+                const scaledHeight = (error / maxError) * maxHeight;
+                bin.style.height = `${Math.min(Math.max(scaledHeight, 10), maxHeight)}px`;
+                
+                if (error < 0.05) {
+                    bin.style.background = '#27ae60';
+                } else if (error < 0.1) {
+                    bin.style.background = '#f39c12';
+                } else {
+                    bin.style.background = '#e74c3c';
+                }
+                
+                bin.innerHTML = `
+                    <div class="bin-value">${(error * 100).toFixed(1)}%</div>
+                    <div class="bin-label">${Math.round(binMin * 100)}-${Math.round(binMax * 100)}%</div>
+                `;
+                
+                bin.addEventListener('mouseenter', (e) => {
+                    const tooltip = document.getElementById('tooltip');
+                    if (tooltip) {
+                        tooltip.innerHTML = `
+                            Confidence Range: ${Math.round(binMin * 100)}-${Math.round(binMax * 100)}%<br>
+                            Samples: ${binPredictions.length}<br>
+                            Avg Confidence: ${Math.round(avgConfidence * 100)}%<br>
+                            Actual Accuracy: ${Math.round(binAccuracy * 100)}%<br>
+                            Error: ${(error * 100).toFixed(1)}%
+                        `;
+                        const rect = bin.getBoundingClientRect();
+                        tooltip.style.left = rect.left + (rect.width / 2) - 50 + 'px';
+                        tooltip.style.top = rect.top - 100 + 'px';
+                        tooltip.classList.add('show');
+                    }
+                });
+                
+                bin.addEventListener('mouseleave', hideTooltip);
+                
+                container.appendChild(bin);
+            }
+        }
+        
+        // Model selection
+        function selectModel(modelType) {
+            currentModel = modelType;
+            const preset = modelPresets[modelType];
+            
+            const biasSlider = document.getElementById('confidence-bias');
+            const tempSlider = document.getElementById('temperature');
+            
+            if (biasSlider) biasSlider.value = preset.bias;
+            if (tempSlider) tempSlider.value = preset.temperature;
+            
+            document.getElementById('bias-value').textContent = preset.bias >= 0 ? `+${preset.bias.toFixed(2)}` : preset.bias.toFixed(2);
+            document.getElementById('temp-value').textContent = preset.temperature.toFixed(1);
+            
+            document.querySelectorAll('.model-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+            
+            confidenceBias = preset.bias;
+            temperature = preset.temperature;
+            generatePredictions();
+            updateVisualization();
+        }
+        
+        // Update temperature
+        function updateTemperature() {
+            temperature = parseFloat(document.getElementById('temperature').value);
+            document.getElementById('temp-value').textContent = temperature.toFixed(1);
+            
+            generatePredictions();
+            updateVisualization();
+        }
+        
+        // Update model
+        function updateModel() {
+            confidenceBias = parseFloat(document.getElementById('confidence-bias').value);
+            document.getElementById('bias-value').textContent = confidenceBias >= 0 ? `+${confidenceBias.toFixed(2)}` : confidenceBias.toFixed(2);
+            
+            currentModel = 'custom';
+            document.querySelectorAll('.model-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('.model-btn')[3].classList.add('active');
+            
+            generatePredictions();
+            updateVisualization();
+        }
+        
+        // Show tooltip
+        function showTooltip(event, prediction) {
+            const tooltip = document.getElementById('tooltip');
+            if (!tooltip) return;
+            
+            tooltip.innerHTML = `
+                Prediction: ${prediction.class}<br>
+                Confidence: ${Math.round(prediction.confidence * 100)}%<br>
+                Raw Confidence: ${Math.round(prediction.rawConfidence * 100)}%<br>
+                Actual: ${prediction.isCorrect ? 'Correct' : 'Incorrect'}
+            `;
+            tooltip.style.left = event.pageX + 10 + 'px';
+            tooltip.style.top = event.pageY + 10 + 'px';
+            tooltip.classList.add('show');
+        }
+        
+        // Hide tooltip
+        function hideTooltip() {
+            const tooltip = document.getElementById('tooltip');
+            if (tooltip) {
+                tooltip.classList.remove('show');
+            }
+        }
+        
+        // Show architecture details
+        function showArchitectureDetails(arch) {
+            document.querySelectorAll('.arch-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            event.currentTarget.classList.add('selected');
+        }
+    </script>
+</body>
+</html>
